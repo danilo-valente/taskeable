@@ -16,28 +16,27 @@ export class CheckInTaskAssigner implements TaskAssigner {
     constructor(private readonly keyResultRepository: KeyResultRepository) {}
 
     async assign(scope: TaskScope): Promise<Task[]> {
-        const keyResults = await this.keyResultRepository.findMany({
+        const keyResultsIds = await this.keyResultRepository.findMany({
             ownerId: scope.userId,
             teamId: scope.teamId,
             mode: 'PUBLISHED'
         })
 
-        if (keyResults.length === 0) {
-            // User does not own any published key results -> no check-in tasks
-            return []
-        }
+        // if (keyResults.length === 0) {
+        //     // User does not own any published key results -> no check-in tasks
+        //     return []
+        // }
 
-        return keyResults.map(keyResults => {
-            return {
-                userId: scope.userId,
-                teamId: scope.teamId,
-                weekId: scope.weekId,
-                templateId: CHECK_IN_TASK_TEMPLATE_ID,
-                score: CHECK_IN_TASK_SCORE,
-                availableSubtasks: new Set(keyResults),
-                completedSubtasks: new Set()
-            }
-        })
+        return [{
+            companyId: scope.companyId,
+            userId: scope.userId,
+            teamId: scope.teamId,
+            weekId: scope.weekId,
+            templateId: CHECK_IN_TASK_TEMPLATE_ID,
+            score: CHECK_IN_TASK_SCORE,
+            availableSubtasks: new Set(keyResultsIds),  // Postgres: usar o tipo SET ou JSON com operações de conjunto
+            completedSubtasks: new Set()
+        }];
     }
 }
   
@@ -50,14 +49,15 @@ export class CheckInTaskFulfiller implements TaskFulfiller<CheckInEvent> {
     async ingest(event: CheckInEvent): Promise<void> {
         
         const taskId: TaskId = {
+            companyId: event.companyId,
             userId: event.userId,
             teamId: event.payload.teamId,
-            weekId: buildWeekId(),
+            weekId: buildWeekId(new Date(event.date)),
             templateId: CHECK_IN_TASK_TEMPLATE_ID
         }
 
         console.log('Computing score for check-in task:', taskId)
 
-        this.taskRepository.addStep(taskId, event.payload.keyResultId)
+        this.taskRepository.addSubtask(taskId, event.payload.keyResultId)
     }
 }

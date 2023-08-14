@@ -1,10 +1,11 @@
 import { Event } from "../events.ts";
 
 export type TaskScope = {
+    companyId: string
     userId: string
     teamId: string
     weekId: string
-}
+}  
 
 export type TaskId = TaskScope & {
     templateId: string
@@ -19,7 +20,9 @@ export type Task = TaskId & {
 export interface TaskRepository {
     createMany(tasks: Task[]): Promise<void>
     findMany(taskId: Partial<TaskId>): Promise<Task[]>
-    addStep(taskId: TaskId, stepId: string): Promise<void>
+    // Adiciona a Subtask ao completedSubtasks e também ao availableSubtasks (cobre o caso em que uma Subtask é criada após a criação da Task)
+    // Esse link pode ajudar na implementação: https://stackoverflow.com/a/42233548
+    addSubtask(taskId: TaskId, subtaskId: string): Promise<void>
 }
 
 /**

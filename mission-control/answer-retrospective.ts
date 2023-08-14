@@ -6,7 +6,7 @@ export const RETROSPECTIVE_ANSWER_TASK_TEMPLATE_ID = 'answer-retrospective'
 export const RETROSPECTIVE_ANSWER_TASK_SCORE = 10
 
 // Retrospective Answer is a single-step task, so we just need a simple, constant value to mark it as fulfilled
-const SINGLE_STEP = 'answered'
+const SINGLE_SUBTASK = 'answered'
 
 export type RetrospectiveAnswerEvent = Event<{}>
 
@@ -14,13 +14,14 @@ export class RetrospectiveAnswerTaskAssigner implements TaskAssigner {
 
     async assign(scope: TaskScope): Promise<Task[]> {
         return [{
+            companyId: scope.companyId,
             userId: scope.userId,
             teamId: scope.teamId,
             weekId: scope.weekId,
             templateId: RETROSPECTIVE_ANSWER_TASK_TEMPLATE_ID,
             score: RETROSPECTIVE_ANSWER_TASK_SCORE,
             // Retrospective Answer is a single-step task, so we just need a simple, constant value to mark it as fulfilled
-            availableSubtasks: new Set(SINGLE_STEP),
+            availableSubtasks: new Set([SINGLE_SUBTASK]),
             completedSubtasks: new Set()
         }]
     }
@@ -38,12 +39,13 @@ export class RetrospectiveAnswerTaskFulfiller implements TaskFulfiller<Retrospec
         // So we need to find all the tasks assigned to this user
         const tasks = await this.taskRepository.findMany({
             userId: event.userId,
-            weekId: buildWeekId(),
+            weekId: buildWeekId(new Date(event.date)),
             templateId: RETROSPECTIVE_ANSWER_TASK_TEMPLATE_ID
         })
         
         for (const task of tasks) {
             const taskId: TaskId = {
+                companyId: task.companyId,
                 userId: task.userId,
                 teamId: task.teamId,
                 weekId: task.weekId,
@@ -53,7 +55,7 @@ export class RetrospectiveAnswerTaskFulfiller implements TaskFulfiller<Retrospec
             console.log('Computing score for retrospective-answer task:', taskId)
 
             // Retrospective Answer is a single-step task, so we just need a simple, constant value to mark it as fulfilled
-            this.taskRepository.addStep(taskId, SINGLE_STEP)
+            this.taskRepository.addSubtask(taskId, SINGLE_SUBTASK)
         }
     }
 }

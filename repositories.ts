@@ -10,6 +10,7 @@ export interface KeyResultRepository {
 
 export type User = {
     userId: string
+    companyId: string
     teamIds: string[]
 }
 

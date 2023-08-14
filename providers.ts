@@ -1,10 +1,23 @@
 import { EventEmitter } from 'node:events'
 import { Event, EventPublisher, EventSubscriber } from './events.ts'
 import { KeyResultRepository, User, UserRepository } from './repositories.ts'
-import { Task, TaskId, TaskRepository } from './mission-control/task.ts'
+import { Task, TaskId, TaskRepository, TaskScope } from './mission-control/task.ts'
 import { Score, ScoreRepository } from './mission-control/score.ts'
+import { TaskCreationConsumer, TaskCreationProducer } from './mission-control/task-queue.ts'
 
 export const localQueue = new EventEmitter()
+
+export const localTaskCreationConsumer: TaskCreationConsumer = {
+    consume(callback: (scope: TaskScope) => void) {
+        localQueue.on('create-task', callback)
+    }
+}
+
+export const localTaskCreationProducer: TaskCreationProducer = {
+    async produce(scope: TaskScope) {
+        localQueue.emit('create-task', scope)
+    }
+}
 
 export const localEventSubscriber: EventSubscriber = {
     subscribe<T extends Event>(topic: string, callback: (event: T) => void) {
@@ -13,16 +26,18 @@ export const localEventSubscriber: EventSubscriber = {
 }
 
 export const localEventPublisher: EventPublisher = {
-    publish(topic: string, event: Event) {
+    async publish(topic: string, event: Event) {
         localQueue.emit(`event:${topic}`, event)
     }
 }
 
 export const STATIC_USERS: User[] = [{
     userId: 'user_1',
+    companyId: 'company_1',
     teamIds: ['team_1', 'team_2']
 }, {
     userId: 'user_2',
+    companyId: 'company_1',
     teamIds: ['team_1']
 }]
 
@@ -80,7 +95,7 @@ export const taskRepository: TaskRepository = {
         ))
     },
 
-    async addStep(taskId: TaskId, stepId: string): Promise<void> {
+    async addSubtask(taskId: TaskId, stepId: string): Promise<void> {
         const task = STATIC_TASKS.find(candidate => (
             candidate.userId === taskId.userId &&
             candidate.teamId === taskId.teamId &&
@@ -88,7 +103,10 @@ export const taskRepository: TaskRepository = {
             candidate.templateId === taskId.templateId
         ))
 
-        task?.completedSubtasks.add(stepId)
+        if (task) {
+            task.completedSubtasks.add(stepId)
+            task.availableSubtasks.add(stepId)  // Evita que Subtasks criadas depois da criação da Task não sejam consideradas no cálculo total
+        }
     }
 }
 
@@ -99,9 +117,21 @@ export const scoreRepository: ScoreRepository = {
             candidate.teamId === teamId &&
             candidate.weekId === weekId
         ))
-        
-        
 
+        /**
+         * Implementação da Opção 2:
+         * =========================
+         * Na implementação real, fazer o cálculo utilizando funções de agregação do Postgres
+         * 
+         * A análise da query abaixo vai determinar quais índices precisamos incluir na tabela Tasks:
+         * 
+         * SELECT teamId,
+         *        weekId,
+         *        SUM(score * SIZE(completed_subtasks)) AS progress,
+         *        SUM(score * SIZE(available_subtasks)) AS available
+         * FROM tasks
+         * WHERE teamId = :teamId AND weekId = :weekId
+         */
         return tasks.reduce((score, task) => {
             return {
                 ...score,
