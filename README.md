@@ -4,8 +4,16 @@
 
 ## Run
 
+You can emulate the Mission Control experience by running the following script:
+
 ```bash
-deno repl -A --eval "import { getScores, printScores, checkInKeyResult, answerRetrospective } from './main.ts'"
+./mc.sh
+```
+
+You can also run Deno directly:
+
+```bash
+deno repl -A --eval "import * as mc from './main.ts'; Object.assign(window, mc);"
 ```
 
 ### The following operations will run on startup
@@ -24,7 +32,9 @@ deno repl -A --eval "import { getScores, printScores, checkInKeyResult, answerRe
 
 The following commands are available in REPL:
 
-- Show all team scores: `await getScores()`
+- Show user tasks (with deltas): `await getUserTasks('user_1', 'team_1')`
+- Show team score: `await getTeamScore('team_1')`
+- Show all team scores: `await getTeamScores()`
 - Simulate key-result check-in:
     - `await checkInKeyResult('user_1', 'key_result_1')`
     - `await checkInKeyResult('user_1', 'key_result_2')`

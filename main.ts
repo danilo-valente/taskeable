@@ -1,3 +1,4 @@
+import { assert } from "https://deno.land/std@0.198.0/assert/mod.ts";
 import { CHECK_IN_TASK_TEMPLATE_ID, CheckInEvent } from "./mission-control/check-in.ts";
 import { RETROSPECTIVE_ANSWER_TASK_TEMPLATE_ID, RetrospectiveAnswerEvent } from "./mission-control/answer-retrospective.ts";
 import planTasks from "./mission-control/task-planner.ts";
@@ -34,27 +35,65 @@ consumeEvents({
 })
 
 // [business/mission-control/api] Simula visualização na home -> endpoint do Mission Control
-// Fluxo 4. Cálculo de Score
-export async function getScores(date = new Date()) {
+// Fluxo 4.1. Cálculo de Score
+export async function getTeamScore(teamId: string, date = new Date()) {
+    assert(teamId, `Missing argument teamId. Usage: ${getTeamScore.toString().split('\n')[0]}`);
+
+    const { progress, available } = await scoreRepository.getScore(teamId, buildWeekId(date))
+
+    const percentage = `${(progress / available * 100).toFixed(1)}%`;
+
+    return { progress, available, percentage };
+}
+
+// [business/mission-control/api] Simula visualização na home -> endpoint do Mission Control
+// Fluxo 4.2. Tarefas do usuário (em um time), incluindo deltas
+export async function getUserTasks(userId: string, teamId: string) {
+    assert(userId, `Missing argument userId. Usage: ${getUserTasks.toString().split('\n')[0]}`);
+    assert(teamId, `Missing argument teamId. Usage: ${getUserTasks.toString().split('\n')[0]}`);
+
+    const teamScore = await getTeamScore(teamId);
+    const tasks = await taskRepository.findMany({ userId, teamId });
+
+    const getDelta = (score: number, weight: number) => {
+        const delta = score * weight / teamScore.available;
+        return `${(delta * 100).toFixed(1)}%`;
+    };
+
+    return tasks.map(task => ({
+        templateId: task.templateId,
+        availableSubtasks: Array.from(task.availableSubtasks).join(', '),
+        completedSubtasks: Array.from(task.completedSubtasks).join(', '),
+        totalDelta: getDelta(task.score, task.availableSubtasks.size),
+        achievedDelta: getDelta(task.score, task.completedSubtasks.size)
+    }));
+}
+
+export function printUserTasks(userId: string, teamId: string) {
+    assert(userId, `Missing argument userId. Usage: ${getUserTasks.toString().split('\n')[0]}`);
+    assert(teamId, `Missing argument teamId. Usage: ${getUserTasks.toString().split('\n')[0]}`);
+
+    getUserTasks(userId, teamId).then(tasks => console.table(tasks));
+}
+
+export async function getTeamScores(date = new Date()) {
     const list = await Promise.all(
         [...STATIC_TEAM_IDS].map(async teamId => {
-            const { progress, available } = await scoreRepository.getScore(teamId, buildWeekId(date))
-
-            const percentage = Math.round(progress / available * 100)
-
-            return { [teamId]: { progress, available, percentage } }
+            return { [teamId]: await getTeamScore(teamId) };
         })
     )
 
-    return list.reduce((map, score) => ({ ...map, ...score }), {})
+    return list.reduce((map, score) => ({ ...map, ...score }), {});
 }
 
-export function printScores(date = new Date()) {
-    getScores(date).then(scores => console.table(scores))
+export function printTeamScores(date = new Date()) {
+    getTeamScores(date).then(scores => console.table(scores));
 }
 
 // [business/core] Simula a operação (mutation) de check-in de Key-Result que ocorre no business
 export async function checkInKeyResult(userId: string, keyResultId: string, companyId = 'company_1') {
+    assert(userId, `Missing argument userId. Usage: ${checkInKeyResult.toString().split('\n')[0]}`);
+    assert(keyResultId, `Missing argument keyResultId. Usage: ${checkInKeyResult.toString().split('\n')[0]}`);
 
     // Check-in é registrado, dados são inseridos no banco, email/notificações é enviado, etc
 
@@ -75,6 +114,7 @@ export async function checkInKeyResult(userId: string, keyResultId: string, comp
 
 // [routines-microservice] Simula a operação que ocorre dentro do routines-microservice
 export async function answerRetrospective(userId: string, companyId = 'company_1') {
+    assert(userId, `Missing argument userId. Usage: ${answerRetrospective.toString().split('\n')[0]}`);
 
     // Resposta é registrada, dados são inseridos no banco, email/notificações é enviado, etc
 
