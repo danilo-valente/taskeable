@@ -24,7 +24,15 @@ planTasks({
 assignTasks({
     queue: localTaskCreationConsumer,
     taskRepository,
-    keyResultRepository
+    keyResultRepository,
+    taskSelector: tasks => {
+        const maxTasksPerScope = 3
+    
+        // Limitar a quantidade de tarefas e aplicar uma regra de negócio para definir quais serão as tarefas
+        return tasks
+            .sort((left, right) => right.availableSubtasks.size * right.score - left.availableSubtasks.size * left.score)
+            .slice(0, maxTasksPerScope)
+    }
 })
 
 // [business/mission-control/event-consumer]

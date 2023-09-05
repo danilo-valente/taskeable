@@ -18,7 +18,7 @@ export default async ({ queue, userRepository }: Args) => {
 
     let count = 0
 
-    // Fluxo 2.1. Agendamento da designação de tarefas
+    // Fluxo 2.1. Agendamento da designação de tarefas (planner)
     for (const user of users) {
         for (const teamId of user.teamIds) {
             // Sequencial, pois os INSERTs estão intermediados por uma fila distribuída (ex: sqs.sendMessage())

@@ -8,9 +8,10 @@ type Args = {
     queue: TaskCreationConsumer
     taskRepository: TaskRepository
     keyResultRepository: KeyResultRepository
+    taskSelector: (tasks: Task[]) => Task[]
 }
 
-export default ({ queue, keyResultRepository, taskRepository }: Args) => {
+export default ({ queue, keyResultRepository, taskRepository, taskSelector }: Args) => {
     
     const assigners: TaskAssigner[] = [
         new CheckInTaskAssigner(keyResultRepository),
@@ -33,8 +34,10 @@ export default ({ queue, keyResultRepository, taskRepository }: Args) => {
                 console.error(`Failed to assign tasks for ${scope.userId} in ${scope.teamId} for ${scope.weekId} with ${assigner.constructor.name}:`, error)
             }
         }
+
+        const selectedTasks = taskSelector(tasks);
         
         // Otimização: um único INSERT para várias entidades
-        await taskRepository.createMany(tasks)
+        await taskRepository.createMany(selectedTasks)
     })
 }

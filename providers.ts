@@ -95,6 +95,7 @@ export const taskRepository: TaskRepository = {
         ))
     },
 
+    // TODO: renomear para addCompletedSubtask
     async addSubtask(taskId: TaskId, stepId: string): Promise<void> {
         const task = STATIC_TASKS.find(candidate => (
             candidate.userId === taskId.userId &&

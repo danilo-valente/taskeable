@@ -12,6 +12,7 @@ export type TaskId = TaskScope & {
 }
 
 export type Task = TaskId & {
+    // TODO: renomear para subtaskScore
     score: number
     availableSubtasks: Set<string>
     completedSubtasks: Set<string>
